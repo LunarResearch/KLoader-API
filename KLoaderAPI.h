@@ -77,8 +77,7 @@ class KLoader
 public:
     KLoader();
 
-    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG ModuleConfigRef,
-        _Out_ PKLOADER_MODULE_REFERENCE* pKModuleRef)
+    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG ModuleConfigRef, _Out_ PKLOADER_MODULE_REFERENCE* pKModuleRef)
     {
         KLockHolder m_lock;
         KModule* m_KModule;
