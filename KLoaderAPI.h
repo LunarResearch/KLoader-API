@@ -11,6 +11,9 @@ DECLARE_HANDLE(KLOADER_MODULE_REFERENCE);
 typedef KLOADER_MODULE_REFERENCE* PKLOADER_MODULE_REFERENCE;
 
 
+/// <summary>
+/// Enumerates
+/// </summary>
 enum ConfigKnobFlag {
     OnlyUpdateOnceAtBoot = 0,
     Uint32Datatype = 0,
@@ -21,6 +24,9 @@ enum ConfigKnobFlag {
 };
 
 
+/// <summary>
+/// Structures
+/// </summary>
 typedef struct _KLOADER_REFERENCE_MODULE_CONFIG {
 
 }KLOADER_REFERENCE_MODULE_CONFIG, * PKLOADER_REFERENCE_MODULE_CONFIG;
@@ -63,25 +69,83 @@ FASTCALL
 KLoaderQueryDispatchTable();
 
 
+/// <summary>
+/// Classes
+/// </summary>
 class KLoader
 {
 public:
     KLoader();
 
-    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG, _Out_ PKLOADER_MODULE_REFERENCE*);
-    NTSTATUS ReferenceKModule(_In_ PGUID, _Out_ struct KModule**);
-    void DereferenceModule(_In_ PKLOADER_MODULE_REFERENCE);
-    void DereferenceKModule(_In_ struct KModule*);
-    NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS);
-    struct KModule* FindModuleByGuidLocked(_In_ PGUID);
+    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG ModuleConfigRef,
+        _Out_ PKLOADER_MODULE_REFERENCE* pKModuleRef)
+    {
+        KLockHolder m_lock;
+        KModule* m_KModule;
 
-private:
+        m_lock.m_State = *(uint32_t*)((int8_t*)ModuleConfigRef + 8);
 
+        auto result = KLoader::ReferenceKModule((PGUID)&m_lock, &m_KModule);
+
+        return result;
+    };
+    NTSTATUS ReferenceKModule(_In_ PGUID pGuid, _Out_ KModule** ppKModule)
+    {
+        int64_t m_KModule;
+        NTSTATUS result;
+        KModule* ModuleByGuidLocked;
+        KLockHolder m_lock;
+        
+        m_lock.m_State = m_lock.Unlocked;
+        m_lock.m_Lock = (PEX_PUSH_LOCK)this;
+        m_lock.m_Region.m_Entered = false;
+        m_lock.AcquireExclusive();
+
+        ModuleByGuidLocked = KLoader::FindModuleByGuidLocked(pGuid);
+
+        m_KModule = (int64_t)ModuleByGuidLocked;
+        ++* (uint32_t*)(m_KModule + 16);
+        
+        m_lock.~KLockHolder();
+        result = 0;
+        *ppKModule = (KModule*)m_KModule;
+
+        return result;
+    };
+    void DereferenceModule(_In_ PKLOADER_MODULE_REFERENCE)
+    {
+
+    };
+    void DereferenceKModule(_In_ KModule*)
+    {
+
+    };
+    NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS)
+    {
+
+    };
+    struct KModule* FindModuleByGuidLocked(_In_ PGUID)
+    {
+
+    };
 };
 
 class KLockHolder
 {
 public:
+    enum {
+        Unlocked = 0,
+        Shared = 1,
+        Exclusive = 2
+    };
+    struct {
+        uint32_t m_State;
+        PEX_PUSH_LOCK m_Lock;
+        struct {
+            bool m_Entered;
+        } m_Region;
+    };
+
     void AcquireExclusive()
     {
         PEX_PUSH_LOCK m_Lock{};
@@ -132,20 +196,6 @@ public:
             this->m_Region.m_Entered = false;
             KeLeaveCriticalRegion();
         }
-    };
-
-private:
-    enum {
-        Unlocked = 0,
-        Shared = 1,
-        Exclusive = 2
-    };
-    struct {
-        uint32_t m_State;
-        PEX_PUSH_LOCK m_Lock;
-        struct {
-            bool m_Entered;
-        } m_Region;
     };
 };
 
