@@ -7,13 +7,22 @@
 #include <cstdint>
 
 
+/*
+1 byte (8 bit): byte, DB (db)       CHAR
+2 bytes (16 bit): word, DW (dw)     SHORT
+4 bytes (32 bit): dword, DD (dd)    ULONG
+8 bytes (64 bit): qword, DQ (dq)    ULONGLONG
+10 bytes (80 bit): tword, DT (dt)
+16 bytes (128 bit): oword, DO (do)
+32 bytes (256 bit): yword, DY (dy)
+64 bytes (512 bit): zword, DZ (dz)
+*/
+
+
 DECLARE_HANDLE(KLOADER_MODULE_REFERENCE);
 typedef KLOADER_MODULE_REFERENCE* PKLOADER_MODULE_REFERENCE;
 
 
-/// <summary>
-/// Enumerates
-/// </summary>
 enum ConfigKnobFlag {
     OnlyUpdateOnceAtBoot = 0,
     Uint32Datatype = 0,
@@ -24,9 +33,6 @@ enum ConfigKnobFlag {
 };
 
 
-/// <summary>
-/// Structures
-/// </summary>
 typedef struct _KLOADER_REFERENCE_MODULE_CONFIG {
 
 }KLOADER_REFERENCE_MODULE_CONFIG, * PKLOADER_REFERENCE_MODULE_CONFIG;
@@ -69,9 +75,6 @@ FASTCALL
 KLoaderQueryDispatchTable();
 
 
-/// <summary>
-/// Classes
-/// </summary>
 class KLoader
 {
 public:
@@ -123,7 +126,7 @@ public:
     {
 
     };
-    struct KModule* FindModuleByGuidLocked(_In_ PGUID)
+    KModule* FindModuleByGuidLocked(_In_ PGUID)
     {
 
     };
