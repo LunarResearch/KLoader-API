@@ -83,7 +83,6 @@ public:
     {
         KLockHolder m_lock;
         int64_t m_KModule;
-        NTSTATUS result;
         KModule* ModuleByGuidLocked;
         
         m_lock.m_State = m_lock.Unlocked;
@@ -97,7 +96,7 @@ public:
         ++* (uint32_t*)(m_KModule + 16);
         
         m_lock.~KLockHolder();
-        result = 0;
+        NTSTATUS result = 0;
         *ppKModule = (KModule*)m_KModule;
 
         return result;
