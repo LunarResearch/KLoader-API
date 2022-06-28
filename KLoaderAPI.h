@@ -106,7 +106,7 @@ public:
     {
 
     };
-    void DereferenceKModule(_In_ KModule*)
+    void DereferenceKModule(_In_ KModule* pKModule)
     {
 
     };
