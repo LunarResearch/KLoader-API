@@ -8,6 +8,6 @@ KLoader API consists of 4 functions:
 * KLoaderRegisterModule
 * KLoaderQueryDispatchTable (not exported function)
 
-KLoader API located in the driver ndis.sys
+KLoader API are located in the driver ndis.sys
 
 <img align="left" src="https://raw.githubusercontent.com/LunarResearch/KLoader-API/main/ndis_kloader.png" width="755" height="575">
