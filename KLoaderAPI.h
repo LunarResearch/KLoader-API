@@ -81,10 +81,10 @@ public:
     };
     NTSTATUS ReferenceKModule(_In_ PGUID pGuid, _Out_ KModule** ppKModule)
     {
+        KLockHolder m_lock;
         int64_t m_KModule;
         NTSTATUS result;
         KModule* ModuleByGuidLocked;
-        KLockHolder m_lock;
         
         m_lock.m_State = m_lock.Unlocked;
         m_lock.m_Lock = (PEX_PUSH_LOCK)this;
