@@ -34,17 +34,6 @@ _IRQL_requires_max_(PASSIVE_LEVEL)
 NTKERNELAPI
 NTSTATUS
 FASTCALL
-KLoaderRegisterModule(
-    _In_ PDRIVER_OBJECT pDriverObject,
-    _In_ PUNICODE_STRING pRegistryPath,
-    _In_opt_ PVOID arg3,
-    _In_ PKLOADER_MODULE_CHARACTERISTICS pKModuleCharacts);
-
-
-_IRQL_requires_max_(PASSIVE_LEVEL)
-NTKERNELAPI
-NTSTATUS
-FASTCALL
 KLoaderReferenceModule(
     _In_ PKLOADER_REFERENCE_MODULE_CONFIG pKModuleConfig,
     _Out_ PKLOADER_MODULE_REFERENCE pKModuleRef);
@@ -56,6 +45,17 @@ NTSTATUS
 FASTCALL
 KLoaderDereferenceModule(
     _In_ KLOADER_MODULE_REFERENCE KModuleRef);
+
+
+_IRQL_requires_max_(PASSIVE_LEVEL)
+NTKERNELAPI
+NTSTATUS
+FASTCALL
+KLoaderRegisterModule(
+    _In_ PDRIVER_OBJECT pDriverObject,
+    _In_ PUNICODE_STRING pRegistryPath,
+    _In_opt_ PVOID arg3,
+    _In_ PKLOADER_MODULE_CHARACTERISTICS pKModuleCharacts);
 
 
 NTSTATUS
