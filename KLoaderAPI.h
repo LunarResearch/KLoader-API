@@ -3,7 +3,7 @@
 #pragma once
 
 
-#include <ntddk.h>
+#include <ntddk.h> // Windows Driver Kit (WDK)
 #include <cstdint>
 
 
