@@ -102,10 +102,14 @@ public:
 
         auto result = KLoader::ReferenceKModule((PGUID)&m_lock, &m_KModule);
 
-        if (!result) {
+        if (!result)
+        {
             DriverService m_DriverService;
+            
             auto result = m_DriverService.Reference();
-            if (!result) {
+            
+            if (!result)
+            {
                 ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E);
             }
         }
@@ -291,6 +295,7 @@ public:
     PVOID ScalarDeletingDestructor(PVOID P, uint32_t a2) // ~KModule
     {
         DriverService m_DriverService;
+        
         m_DriverService.~DriverService();
         if ((a2 & 1) != 0 && P)
             ExFreePoolWithTag(P, 0x62694C4E);
