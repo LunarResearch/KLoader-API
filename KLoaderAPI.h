@@ -47,7 +47,7 @@ NTSTATUS
 FASTCALL
 KLoaderReferenceModule(
     _In_ PKLOADER_REFERENCE_MODULE_CONFIG pKModuleConfig,
-    _Out_ PKLOADER_MODULE_REFERENCE* ppKModule);
+    _Out_ PKLOADER_MODULE_REFERENCE pKModuleRef);
 
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
@@ -55,7 +55,7 @@ NTKERNELAPI
 NTSTATUS
 FASTCALL
 KLoaderDereferenceModule(
-    _In_ PKLOADER_MODULE_REFERENCE pKModule);
+    _In_ KLOADER_MODULE_REFERENCE KModuleRef);
 
 
 NTSTATUS
@@ -68,7 +68,7 @@ class KLoader
 public:
     KLoader();
 
-    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG ModuleConfigRef, _Out_ PKLOADER_MODULE_REFERENCE* pKModuleRef)
+    NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG ModuleConfigRef, _Out_ PKLOADER_MODULE_REFERENCE pKModuleRef)
     {
         KLockHolder m_lock;
         KModule* m_KModule;
@@ -102,7 +102,7 @@ public:
 
         return result;
     };
-    void DereferenceModule(_In_ PKLOADER_MODULE_REFERENCE)
+    void DereferenceModule(_In_ KLOADER_MODULE_REFERENCE KModuleRef)
     {
 
     };
