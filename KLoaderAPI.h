@@ -4,11 +4,30 @@
 
 
 #include <ntddk.h> // Windows Driver Kit (WDK)
-#include <cstdint>
+#include <stdint.h>
 
 
 DECLARE_HANDLE(KLOADER_MODULE_REFERENCE);
 typedef KLOADER_MODULE_REFERENCE* PKLOADER_MODULE_REFERENCE;
+
+
+struct DECLSPEC_ALIGN(16) uint128_t {
+    uint64_t Low;
+    int64_t High;
+};
+
+
+#define __CASSERT_N0__(l) COMPILE_TIME_ASSERT_ ## l
+#define __CASSERT_N1__(l) __CASSERT_N0__(l)
+#define CASSERT(cnd) typedef char __CASSERT_N1__(__LINE__) [(cnd) ? 1 : -1]
+
+template<typename T> bool is_mul_ok(T count, T elsize)
+{
+    CASSERT((T)(-1) > 0);
+    if (elsize == 0 || count == 0)
+        return true;
+    return count <= ((T)(-1)) / elsize;
+}
 
 
 enum ConfigKnobFlag {
@@ -60,14 +79,20 @@ KLoaderRegisterModule(
 
 NTSTATUS
 FASTCALL
-KLoaderQueryDispatchTable();
+KLoaderQueryDispatchTable(
+    // EXECUTION_CONTEXT_DISPATCH_TABLE_ID  2595FE53-954B-AF47-8B1F-F278B7D588FD
+);
 
 
 class KLoader
 {
 public:
-    KLoader();
-
+    KLoader()
+    {
+        *(uint64_t*)this = 0;
+        *((uint64_t*)this + 2) = *((int8_t*)this + 8);
+        *((uint64_t*)this + 1) = *((int8_t*)this + 8);
+    };
     NTSTATUS ReferenceModule(_In_ PKLOADER_REFERENCE_MODULE_CONFIG pKModuleConfigRef, _Out_ PKLOADER_MODULE_REFERENCE pKModuleRef)
     {
         KLockHolder m_lock;
@@ -77,6 +102,14 @@ public:
 
         auto result = KLoader::ReferenceKModule((PGUID)&m_lock, &m_KModule);
 
+        if (!result) {
+            DriverService m_DriverService;
+            auto result = m_DriverService.Reference();
+            if (!result) {
+                ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E);
+            }
+        }
+
         return result;
     };
     NTSTATUS ReferenceKModule(_In_ PGUID pGuid, _Out_ KModule** ppKModule)
@@ -84,7 +117,7 @@ public:
         KLockHolder m_lock;
         int64_t m_KModule;
         KModule* ModuleByGuidLocked;
-        
+
         m_lock.m_State = m_lock.Unlocked;
         m_lock.m_Lock = (PEX_PUSH_LOCK)this;
         m_lock.m_Region.m_Entered = false;
@@ -94,7 +127,7 @@ public:
 
         m_KModule = (int64_t)ModuleByGuidLocked;
         ++* (uint32_t*)(m_KModule + 16);
-        
+
         m_lock.~KLockHolder();
         NTSTATUS result = 0;
         *ppKModule = (KModule*)m_KModule;
@@ -194,20 +227,8 @@ public:
     void Initialize()
     {
         *(uint64_t*)this = 0;
-    };    
+    };
 };
-
-#define __CASSERT_N0__(l) COMPILE_TIME_ASSERT_ ## l
-#define __CASSERT_N1__(l) __CASSERT_N0__(l)
-#define CASSERT(cnd) typedef char __CASSERT_N1__(__LINE__) [(cnd) ? 1 : -1]
-
-template<typename T> bool is_mul_ok(T count, T elsize)
-{
-    CASSERT((T)(-1) > 0);
-    if (elsize == 0 || count == 0)
-        return true;
-    return count <= ((T)(-1)) / elsize;
-}
 
 class KHistogram
 {
@@ -231,7 +252,7 @@ public:
         *(uint64_t*)(Pool + 8) = count;
         *(uint32_t*)(Pool + 16) = elsize;
 
-        memset((void*)(Pool + 20), 0, NumberOfBytes);
+        memset((PVOID)(Pool + 20), 0, NumberOfBytes);
 
         return (KHistogram*)result;
     };
@@ -245,11 +266,36 @@ public:
 class KModule
 {
 public:
-    KModule();
-    ~KModule(); // `scalar deleting destructor'
+    LONGLONG kModule(int64_t a1, int64_t* a2, int64_t* a3)
+    {
+        *(uint128_t*)a1 = *(uint128_t*)0;
+        *(uint32_t*)(a1 + 16) = 0;
+        *(uint128_t*)(a1 + 20) = *(uint128_t*)*a2;
 
-private:
+        int64_t v3 = *a3;
+        *a3 = 0;
 
+        *(uint64_t*)(a1 + 40) = v3;
+        *(uint64_t*)(a1 + 48) = 0;
+        *(uint32_t*)(a1 + 56) = 0;
+        *(uint64_t*)(a1 + 64) = 0;
+        *(uint64_t*)(a1 + 72) = 0;
+        *(uint64_t*)(a1 + 80) = 0;
+        *(uint64_t*)(a1 + 88) = 0;
+        *(uint64_t*)(a1 + 96) = 0;
+        *(uint64_t*)(a1 + 104) = a1 + 104;
+        *(uint64_t*)(a1 + 112) = a1 + 104;
+
+        return a1;
+    };
+    PVOID ScalarDeletingDestructor(PVOID P, uint32_t a2) // ~KModule
+    {
+        DriverService m_DriverService;
+        m_DriverService.~DriverService();
+        if ((a2 & 1) != 0 && P)
+            ExFreePoolWithTag(P, 0x62694C4E);
+        return P;
+    };
 };
 
 class KAcquireSpinLock
@@ -267,6 +313,35 @@ private:
     struct {
         KIRQL m_oldIrql;
         KSPIN_LOCK m_lock;
+    };
+};
+
+class DriverService
+{
+public:
+    NTSTATUS Reference()
+    {
+
+    };
+    NTSTATUS Dereference()
+    {
+
+    };
+    NTSTATUS Open(_In_ PDRIVER_OBJECT pDriverObject, _In_ PUNICODE_STRING pRegistryPath)
+    {
+
+    };
+    void Close()
+    {
+        ZwUnloadDriver(*(PUNICODE_STRING*)this);
+        *((uint64_t*)this + 3) = 0;
+    };
+
+    ~DriverService()
+    {
+        PVOID P = *(PVOID*)this;
+        *(uint64_t*)this = 0;
+        if (P) ExFreePoolWithTag(P, 0);
     };
 };
 
