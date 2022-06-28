@@ -35,7 +35,7 @@ NTKERNELAPI
 NTSTATUS
 FASTCALL
 KLoaderReferenceModule(
-    _In_ PKLOADER_REFERENCE_MODULE_CONFIG pKModuleConfig,
+    _In_ PKLOADER_REFERENCE_MODULE_CONFIG pKModuleConfigRef,
     _Out_ PKLOADER_MODULE_REFERENCE pKModuleRef);
 
 
@@ -73,7 +73,7 @@ public:
         KLockHolder m_lock;
         KModule* m_KModule;
 
-        m_lock.m_State = *(uint32_t*)((int8_t*)pModuleConfigRef + 8);
+        m_lock.m_State = *(uint32_t*)((int8_t*)pKModuleConfigRef + 8);
 
         auto result = KLoader::ReferenceKModule((PGUID)&m_lock, &m_KModule);
 
