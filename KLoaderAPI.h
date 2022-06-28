@@ -102,6 +102,10 @@ public:
 
         return result;
     };
+    KModule* FindModuleByGuidLocked(_In_ PGUID pGuid)
+    {
+
+    };
     void DereferenceModule(_In_ KLOADER_MODULE_REFERENCE KModuleRef)
     {
 
@@ -111,10 +115,6 @@ public:
 
     };
     NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS)
-    {
-
-    };
-    KModule* FindModuleByGuidLocked(_In_ PGUID)
     {
 
     };
