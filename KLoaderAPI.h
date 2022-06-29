@@ -12,8 +12,10 @@ typedef KLOADER_MODULE_REFERENCE* PKLOADER_MODULE_REFERENCE;
 
 
 struct DECLSPEC_ALIGN(16) uint128_t {
-    uint64_t Low;
-    int64_t High;
+    union {
+        uint64_t Low;
+        int64_t High;
+    } DUMMYUNIONNAME;
 };
 
 
@@ -105,12 +107,25 @@ public:
         if (!result)
         {
             DriverService m_DriverService;
-            
+
             auto result = m_DriverService.Reference();
-            
+
             if (!result)
             {
-                ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E);
+                auto Pool = ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E);
+
+                if (Pool)
+                {
+                    m_lock.m_State = m_lock.Unlocked;
+                    m_lock.m_Lock = (PEX_PUSH_LOCK)m_KModule + 12;
+                    m_lock.m_Region.m_Entered = false;
+                    m_lock.AcquireExclusive();
+                    Pool = (PEX_PUSH_LOCK*)m_KModule;
+                    m_lock.~KLockHolder();
+                    pKModuleRef = (PKLOADER_MODULE_REFERENCE)Pool;
+                    return 0;
+
+                }
             }
         }
 
@@ -153,6 +168,42 @@ public:
     NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS)
     {
 
+    };
+};
+
+class KModule
+{
+public:
+    KModule(struct _GAC_GUID** a1, uint128_t* a2, int64_t* a3)
+    {
+        *(uint128_t*)a1 = *(uint128_t*)0;
+        *(uint32_t*)(a1 + 16) = 0;
+        *(uint128_t*)(a1 + 20) = *a2;
+
+        auto v3 = *a3;
+        *a3 = 0;
+
+        *(uint64_t*)(a1 + 40) = v3;
+        *(uint64_t*)(a1 + 48) = 0;
+        *(uint32_t*)(a1 + 56) = 0;
+        *(uint64_t*)(a1 + 64) = 0;
+        *(uint64_t*)(a1 + 72) = 0;
+        *(uint64_t*)(a1 + 80) = 0;
+        *(uint64_t*)(a1 + 88) = 0;
+        *(uint64_t*)(a1 + 96) = 0;
+        *(uint64_t*)(a1 + 104) = *(uint64_t*)(a1 + 104);
+        *(uint64_t*)(a1 + 112) = *(uint64_t*)(a1 + 104);
+
+        //return a1;
+    };
+    PVOID ScalarDeletingDestructor(PVOID P, uint32_t a2) // ~KModule
+    {
+        DriverService m_DriverService;
+
+        m_DriverService.~DriverService();
+        if ((a2 & 1) != 0 && P)
+            ExFreePoolWithTag(P, 0x62694C4E);
+        return P;
     };
 };
 
@@ -267,42 +318,6 @@ public:
     };
 };
 
-class KModule
-{
-public:
-    LONGLONG kModule(int64_t a1, int64_t* a2, int64_t* a3)
-    {
-        *(uint128_t*)a1 = *(uint128_t*)0;
-        *(uint32_t*)(a1 + 16) = 0;
-        *(uint128_t*)(a1 + 20) = *(uint128_t*)*a2;
-
-        int64_t v3 = *a3;
-        *a3 = 0;
-
-        *(uint64_t*)(a1 + 40) = v3;
-        *(uint64_t*)(a1 + 48) = 0;
-        *(uint32_t*)(a1 + 56) = 0;
-        *(uint64_t*)(a1 + 64) = 0;
-        *(uint64_t*)(a1 + 72) = 0;
-        *(uint64_t*)(a1 + 80) = 0;
-        *(uint64_t*)(a1 + 88) = 0;
-        *(uint64_t*)(a1 + 96) = 0;
-        *(uint64_t*)(a1 + 104) = a1 + 104;
-        *(uint64_t*)(a1 + 112) = a1 + 104;
-
-        return a1;
-    };
-    PVOID ScalarDeletingDestructor(PVOID P, uint32_t a2) // ~KModule
-    {
-        DriverService m_DriverService;
-        
-        m_DriverService.~DriverService();
-        if ((a2 & 1) != 0 && P)
-            ExFreePoolWithTag(P, 0x62694C4E);
-        return P;
-    };
-};
-
 class KAcquireSpinLock
 {
 public:
@@ -338,13 +353,13 @@ public:
     };
     void Close()
     {
-        ZwUnloadDriver(*(PUNICODE_STRING*)this);
+        ZwUnloadDriver((PUNICODE_STRING)this);
         *((uint64_t*)this + 3) = 0;
     };
 
     ~DriverService()
     {
-        PVOID P = *(PVOID*)this;
+        auto P = (PVOID)this;
         *(uint64_t*)this = 0;
         if (P) ExFreePoolWithTag(P, 0);
     };
