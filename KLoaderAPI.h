@@ -42,6 +42,22 @@ enum ConfigKnobFlag {
 };
 
 
+struct KPushLockBase {
+    struct {
+        union {
+            struct {
+                uint64_t Locked : 1;
+                uint64_t Waiting : 1;
+                uint64_t Waking : 1;
+                uint64_t MultipleShared : 1;
+                uint64_t Shared : sizeof(uint64_t) * 8 - 4;
+            };
+            uint64_t Value;
+            PVOID Ptr;
+        };
+    } m_Lock;
+};
+
 typedef struct _KLOADER_REFERENCE_MODULE_CONFIG {
 
 } KLOADER_REFERENCE_MODULE_CONFIG, * PKLOADER_REFERENCE_MODULE_CONFIG;
@@ -82,8 +98,14 @@ KLoaderRegisterModule(
 NTSTATUS
 FASTCALL
 KLoaderQueryDispatchTable(
-    // EXECUTION_CONTEXT_DISPATCH_TABLE_ID  2595FE53-954B-AF47-8B1F-F278B7D588FD
+    // EXECUTION_CONTEXT_DISPATCH_TABLE_ID -> 2595FE53-954B-AF47-8B1F-F278B7D588FD
 );
+
+NTSTATUS
+FASTCALL
+CreateKModule(
+    _In_ PGUID a1,
+    _In_ KModule* a2);
 
 
 class KLoader
@@ -99,34 +121,53 @@ public:
     {
         KLockHolder m_lock;
         KModule* m_KModule;
+        DriverService m_DriverService;
+        KPushLockBase* m_Push{};
+
+        KPushLockBase** Value;
+        KPushLockBase** v14;
+        KPushLockBase* v15{};
 
         m_lock.m_State = *(uint32_t*)((int8_t*)pKModuleConfigRef + 8);
 
         auto result = KLoader::ReferenceKModule((PGUID)&m_lock, &m_KModule);
-
         if (!result)
         {
-            DriverService m_DriverService;
+            m_Push = (KPushLockBase*)m_KModule;
 
             auto result = m_DriverService.Reference();
-
             if (!result)
             {
-                auto Pool = ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E);
-
+                auto Pool = (uint64_t*)ExAllocatePoolWithTag(PagedPool, 0x20, 0x62694C4E); // tag -> NLib
                 if (Pool)
                 {
+                    Pool[1] = 0;
                     m_lock.m_State = m_lock.Unlocked;
-                    m_lock.m_Lock = (PEX_PUSH_LOCK)m_KModule + 12;
+                    *(Pool + 1) = 0;
+                    *Pool = (uint64_t)m_Push;
+                    Pool[1] = *((uint64_t*)pKModuleConfigRef + 3);
+                    m_lock.m_Lock = m_Push + 12;
                     m_lock.m_Region.m_Entered = false;
                     m_lock.AcquireExclusive();
-                    Pool = (PEX_PUSH_LOCK*)m_KModule;
-                    m_lock.~KLockHolder();
-                    pKModuleRef = (PKLOADER_MODULE_REFERENCE)Pool;
-                    return 0;
 
+                    Value = (KPushLockBase**)m_Push[14].m_Lock.Value;
+                    v14 = (KPushLockBase**)(Pool + 2);
+                    v15 = m_Push + 13;
+                    if (*Value != v15) __fastfail(FAST_FAIL_CORRUPT_LIST_ENTRY);
+                    Pool[3] = (uint64_t)Value;
+                    *v14 = v15;
+                    *Value = (KPushLockBase*)v14;
+                    v15[1].m_Lock.Value = (uint64_t)v14;
+
+                    m_lock.~KLockHolder();
+                    *pKModuleRef = (KLOADER_MODULE_REFERENCE)Pool;
+                    return 0;
                 }
+                result = STATUS_INSUFFICIENT_RESOURCES;
+                m_DriverService.Dereference();
             }
+            KLoader::DereferenceKModule((KModule*)m_Push);
+            return result;
         }
 
         return result;
@@ -138,11 +179,20 @@ public:
         KModule* ModuleByGuidLocked;
 
         m_lock.m_State = m_lock.Unlocked;
-        m_lock.m_Lock = (PEX_PUSH_LOCK)this;
+        m_lock.m_Lock = (KPushLockBase*)this;
         m_lock.m_Region.m_Entered = false;
         m_lock.AcquireExclusive();
 
         ModuleByGuidLocked = KLoader::FindModuleByGuidLocked(pGuid);
+        if (!ModuleByGuidLocked)
+        {
+            auto v8 = CreateKModule(pGuid, &ModuleByGuidLocked);
+            if (v8)
+            {
+                m_lock.~KLockHolder();
+                return v8;
+            }
+        }
 
         m_KModule = (int64_t)ModuleByGuidLocked;
         ++* (uint32_t*)(m_KModule + 16);
@@ -217,7 +267,7 @@ public:
     };
     struct {
         uint32_t m_State;
-        PEX_PUSH_LOCK m_Lock;
+        KPushLockBase* m_Lock;
         struct {
             bool m_Entered;
         } m_Region;
@@ -225,32 +275,32 @@ public:
 
     void AcquireExclusive()
     {
-        PEX_PUSH_LOCK m_Lock{};
+        KPushLockBase* m_Lock{};
         KeEnterCriticalRegion();
         m_Lock = this->m_Lock;
         this->m_Region.m_Entered = true;
-        ExAcquirePushLockExclusive(m_Lock);
+        ExAcquirePushLockExclusive((uint64_t*)m_Lock);
         this->m_State = Exclusive;
     };
     void AcquireShared()
     {
-        PEX_PUSH_LOCK m_Lock{};
+        KPushLockBase* m_Lock{};
         KeEnterCriticalRegion();
         m_Lock = this->m_Lock;
         this->m_Region.m_Entered = true;
-        ExAcquirePushLockShared(m_Lock);
+        ExAcquirePushLockShared((uint64_t*)m_Lock);
         this->m_State = Shared;
     };
     void ReleaseExclusive()
     {
-        ExReleasePushLockExclusive(this->m_Lock);
+        ExReleasePushLockExclusive((uint64_t*)this->m_Lock);
         this->m_State = Unlocked;
         this->m_Region.m_Entered = false;
         KeLeaveCriticalRegion();
     };
     void ReleaseShared()
     {
-        ExReleasePushLockShared(this->m_Lock);
+        ExReleasePushLockShared((uint64_t*)this->m_Lock);
         this->m_State = Unlocked;
         this->m_Region.m_Entered = false;
         KeLeaveCriticalRegion();
@@ -261,7 +311,7 @@ public:
         auto State = this->m_State - 1;
         if (State) {
             if (State == Shared) {
-                ExReleasePushLockExclusive(this->m_Lock);
+                ExReleasePushLockExclusive((uint64_t*)this->m_Lock);
                 this->m_State = Unlocked;
                 this->m_Region.m_Entered = false;
                 KeLeaveCriticalRegion();
