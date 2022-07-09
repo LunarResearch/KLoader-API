@@ -7,7 +7,7 @@ KLoader API consists of 5 functions:
 * KLoaderDereferenceModule
 * KLoaderRegisterModule
 * KLoaderQueryDispatchTable (not exported function)
-* CreateKModule (not exported function)
+* CreateKModule (internal function)
 
 KLoader API is located in the driver ndis.sys
 
