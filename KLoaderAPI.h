@@ -7,6 +7,14 @@
 #include <stdint.h>
 
 
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM                  (L"SharedMemoryAllocationDurationHistogram");
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_AUTO_RESET       (L"SharedMemoryAllocationDurationHistogramAutoReset");
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_NUM_INTERVALS    (L"SharedMemoryAllocationDurationHistogramNumIntervals");
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_START            (L"SharedMemoryAllocationDurationHistogramStart");
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_INTERVAL_LENGTH  (L"SharedMemoryAllocationDurationHistogramIntervalLength");
+#define SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_MAX_HISTOGRAMS   (L"SharedMemoryAllocationDurationHistogramMaxHistograms");
+
+
 DECLARE_HANDLE(KLOADER_MODULE_REFERENCE);
 typedef KLOADER_MODULE_REFERENCE* PKLOADER_MODULE_REFERENCE;
 
@@ -41,22 +49,53 @@ enum ConfigKnobFlag {
     MustBePowerOfTwo = 64
 };
 
+enum _CONFIG_KNOB_NAMESPACE_TYPE {
+    ConfigKnobNamespaceNdisGlobal = 0,
+    ConfigKnobNamespaceNetworkInterface = 1,
+    ConfigKnobNamespaceExecutionContext = 2
+};
+
+
+struct KnobDescriptor {
+    LPCTSTR Name;   // SHARED_MEMORY_ALLOC_DURATION_HISTOGRAM_
+    PVOID Value;
+    uint64_t DefaultValue;
+    ConfigKnobFlag Flags;
+    uint64_t MinimumValue;
+    uint64_t MaximumValue;
+};
+
+struct _EX_PUSH_LOCK {
+    union {
+        struct {
+            uint64_t Locked : 1;
+            uint64_t Waiting : 1;
+            uint64_t Waking : 1;
+            uint64_t MultipleShared : 1;
+            uint64_t Shared : sizeof(uint64_t) * 8 - 4;
+        };
+        uint64_t Value;
+        PVOID Ptr;
+    };
+};
 
 struct KPushLockBase {
-    struct {
-        union {
-            struct {
-                uint64_t Locked : 1;
-                uint64_t Waiting : 1;
-                uint64_t Waking : 1;
-                uint64_t MultipleShared : 1;
-                uint64_t Shared : sizeof(uint64_t) * 8 - 4;
-            };
-            uint64_t Value;
-            PVOID Ptr;
-        };
-    } m_Lock;
+    _EX_PUSH_LOCK m_Lock;
 };
+
+struct _CONFIG_KNOB_NAMESPACE {
+    _CONFIG_KNOB_NAMESPACE_TYPE NamespaceType;
+    GUID ObjectId;
+};
+
+struct KnobNamespace {
+    DRIVER_OBJECT m_driverObject;
+    _CONFIG_KNOB_NAMESPACE m_id;
+    LIST_ENTRY m_globalLinkage;
+    LIST_ENTRY m_collectionList;
+    KPushLockBase m_lock;
+};
+
 
 typedef struct _KLOADER_REFERENCE_MODULE_CONFIG {
 
@@ -374,7 +413,7 @@ public:
     ~KAcquireSpinLock()
     {
         if (this->m_oldIrql != 0xFF) {
-            KeReleaseSpinLock(&this->m_lock, this->m_oldIrql);
+            KeReleaseSpinLock(this->m_lock, this->m_oldIrql);
             this->m_oldIrql = -1;
         }
     };
@@ -382,7 +421,7 @@ public:
 private:
     struct {
         KIRQL m_oldIrql;
-        KSPIN_LOCK m_lock;
+        PKSPIN_LOCK m_lock; // KSpinLockBase*
     };
 };
 
