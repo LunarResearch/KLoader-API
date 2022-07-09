@@ -104,8 +104,8 @@ KLoaderQueryDispatchTable(
 NTSTATUS
 FASTCALL
 CreateKModule(
-    _In_ PGUID a1,
-    _In_ KModule* a2);
+    _In_ PGUID pGuid,
+    _Out_ KModule* pKModule);
 
 
 class KLoader
@@ -186,11 +186,11 @@ public:
         ModuleByGuidLocked = KLoader::FindModuleByGuidLocked(pGuid);
         if (!ModuleByGuidLocked)
         {
-            auto v8 = CreateKModule(pGuid, &ModuleByGuidLocked);
-            if (v8)
+            auto result = CreateKModule(pGuid, &ModuleByGuidLocked);
+            if (result)
             {
                 m_lock.~KLockHolder();
-                return v8;
+                return result;
             }
         }
 
@@ -215,7 +215,7 @@ public:
     {
 
     };
-    NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS)
+    NTSTATUS RegisterModule(_In_ PDRIVER_OBJECT, _In_ PUNICODE_STRING, _In_opt_ PVOID, _In_ PKLOADER_MODULE_CHARACTERISTICS)
     {
 
     };
@@ -348,7 +348,7 @@ public:
         if (NumberOfBytes > UINT32_MAX) return 0;
         if ((uint32_t)NumberOfBytes >= (UINT32_MAX - 19)) return 0;
 
-        auto Pool = (int64_t)ExAllocatePool2(POOL_FLAG_NON_PAGED, NumberOfBytes + 20, 0x7473484B);
+        auto Pool = (int64_t)ExAllocatePool2(POOL_FLAG_NON_PAGED, NumberOfBytes + 20, 0x7473484B); // tag -> KHst
 
         int64_t result = Pool;
         if (!Pool) return 0;
