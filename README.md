@@ -2,7 +2,7 @@
 
 In Windows 11  has been added a new registry branch: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\KLoader` (access to this registry key is possible only with system rights).
 
-KLoader API consists of 5 functions:
+KLoader API consists of 7 functions:
 * KLoaderReferenceModule
 * KLoaderDereferenceModule
 * KLoaderRegisterModule
